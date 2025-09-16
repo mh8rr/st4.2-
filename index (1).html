@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8">
+  <title>شبیه‌سازی آستانه خطی</title>
+  <style>
+    :root {
+      --bg: #071424;
+      --accent: #bfefff;
+      --blue: #3bacf7;
+      --yellow: #ffd358;
+      --bfs-red: #e63946;
+      --muted: #9fb7c9;
+      --panel-shadow: 0 18px 48px rgba(2, 10, 18, 0.6);
+      --font: 'Vazirmatn', system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      --edge: #2b9fe9;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: linear-gradient(180deg, #071424, #072833);
+      font-family: var(--font);
+      color: var(--accent);
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* header */
+    .app-header {
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 18px;
+      background: transparent;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .brand .title {
+      margin: 0;
+      font-size: 18px;
+      color: var(--blue);
+      font-weight: 800;
+      line-height: 1;
+    }
+    .brand .subtitle {
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 13px;
+      transition: transform .12s ease, box-shadow .12s ease;
+      background: linear-gradient(180deg, var(--blue), #2b96e6);
+      color: #fff;
+      box-shadow: 0 10px 28px rgba(59, 172, 247, 0.06);
+      font-family: var(--font);
+    }
+    .btn.secondary {
+      background: linear-gradient(180deg, var(--yellow), #ffd358);
+      color: #072033;
+      box-shadow: 0 10px 28px rgba(255, 211, 88, 0.06);
+    }
+    .btn.danger {
+      background: linear-gradient(180deg, var(--bfs-red), #b71c1c);
+      color: #fff;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn:active { transform: translateY(1px); }
+
+    select {
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: none;
+      font-size: 13px;
+      background: #072033;
+      color: var(--accent);
+      font-family: var(--font);
+    }
+
+    /* canvas area */
+    .canvas-wrap {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 8px;
+      overflow: hidden;
+    }
+    .canvas-container {
+      width: 600px;
+      height: 450px;
+      position: relative;
+      border-radius: 12px;
+      box-shadow: var(--panel-shadow);
+      background: linear-gradient(180deg, rgba(255,255,255,0.01), transparent 30%);
+    }
+
+    svg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    line {
+      stroke: var(--muted);
+      stroke-width: 2;
+      transition: stroke 0.3s, stroke-width 0.3s;
+    }
+    line.active {
+      stroke: var(--edge);
+      stroke-width: 4;
+    }
+
+    .node {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border: 2px solid var(--muted);
+      border-radius: 50%;
+      background-color: #0b2033;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: var(--accent);
+      user-select: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    }
+    .node:hover { transform: scale(1.1); border-color: var(--blue); }
+    .node.selected { background-color: var(--yellow); border-color: var(--yellow); color: #072033; }
+    .node.active { background-color: var(--blue); border-color: var(--edge); color: white; }
+
+    #status {
+      margin-top: 12px;
+      font-weight: bold;
+      color: var(--yellow);
+      text-align: center;
+    }
+
+    /* modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 8, 18, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 7000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .14s ease;
+    }
+    .modal-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal {
+      width: min(760px, 94%);
+      background: #ffffff;
+      color: #072033;
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 28px 68px rgba(7, 20, 40, 0.28);
+      direction: rtl;
+      text-align: right;
+    }
+    .modal h4 {
+      margin: 0 0 10px 0;
+      color: var(--blue);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-header">
+    <div class="brand">
+      <p class="title">شبیه‌سازی آستانه خطی</p>
+      <p class="subtitle">انتشار خبر در شبکه</p>
+    </div>
+    <div class="controls">
+      <label for="thresholdSelect">آستانه:</label>
+      <select id="thresholdSelect">
+        <option value="0.3">۳۰٪</option>
+        <option value="0.5">۵۰٪</option>
+      </select>
+      <button id="runButton" class="btn">اجرای شبیه‌سازی</button>
+      <button id="resetButton" class="btn danger">ریست</button>
+      <button id="helpButton" class="btn secondary">راهنما</button>
+    </div>
+  </div>
+
+  <div class="canvas-wrap">
+    <div class="canvas-container" id="network"></div>
+  </div>
+  <div id="status"></div>
+
+  <!-- Help Modal -->
+  <div class="modal-backdrop" id="helpModal">
+    <div class="modal">
+      <h4>راهنمای بازی</h4>
+      <p>
+        این مینی‌گیم شبیه‌سازی می‌کند که چگونه یک خبر در یک شبکه اجتماعی با استفاده از 
+        <strong>مدل آستانه خطی</strong> پخش می‌شود.
+      </p>
+      <ul>
+        <li>می‌توانید حالت <b>۳۰٪</b> یا <b>۵۰٪</b> را انتخاب کنید.</li>
+        <li>در حالت <b>۳۰٪</b> فقط <b>۱</b> گره اولیه انتخاب می‌کنید. در حالت <b>۵۰٪</b> باید <b>۲</b> گره اولیه انتخاب کنید.</li>
+        <li>روی دکمه <b>اجرای شبیه‌سازی</b> کلیک کنید تا فرایند شروع شود.</li>
+        <li>در هر گام، یک گره زمانی فعال می‌شود که حداقل به اندازه درصد آستانه همسایه فعال داشته باشد.</li>
+        <li>شبیه‌سازی ادامه پیدا می‌کند تا زمانی که هیچ گره جدیدی فعال نشود.</li>
+        <li><b>باید گره‌ای را انتخاب کنید که با انتخاب آن به مرور زمان خبر به کل شبکه برسد.</b></li>
+        <li>چند بار با آستانه‌ی <b>۳۰٪</b> و چند بار با آستانه‌ی <b>۵۰٪</b> (با انتخاب گره‌های مختلف) انتشار را تست کنید.</li>
+      </ul>
+      <p>
+        <b>چرا ارتباطات ضعیف مهم‌اند؟</b><br>
+        اگر یک گروه فقط درون خودش ارتباط داشته باشد، خبر همان‌جا می‌ماند.<br>
+        اما وجود ارتباطات ضعیف میان گروه‌ها باعث می‌شود خبر از یک حباب بیرون بیاید و در کل شبکه پخش شود!
+      </p>
+      <button id="closeHelp" class="btn ghost">بستن</button>
+    </div>
+  </div>
+
+  <script>
+    const positions = {
+      1: [120, 80], 2: [200, 50], 3: [280, 80],
+      4: [200, 150], 5: [120, 250], 6: [220, 250],
+      7: [220, 350], 8: [340, 150], 9: [420, 150],
+      10:[340, 250]
+    };
+    const neighbors = {
+      1: [2,3,4], 2: [1,3,4], 3: [1,2,4], 4: [1,2,3,5,6,8],
+      5: [4], 6: [4,7,10], 7: [6], 8: [4,9,10], 9: [8], 10:[6,8]
+    };
+
+    const networkDiv = document.getElementById('network');
+    const statusDiv = document.getElementById('status');
+    const svgNS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNS, 'svg');
+    networkDiv.appendChild(svg);
+    const edgeMap = {};
+
+    function drawEdges() {
+      while (svg.lastChild) svg.removeChild(svg.lastChild);
+      const drawn = new Set();
+      for (let i = 1; i <= 10; i++) {
+        neighbors[i].forEach(j => {
+          const edgeId = [i, j].sort().join('-');
+          if (!drawn.has(edgeId)) {
+            drawn.add(edgeId);
+            const line = document.createElementNS(svgNS, 'line');
+            const [x1, y1] = positions[i];
+            const [x2, y2] = positions[j];
+            line.setAttribute('x1', x1+20);
+            line.setAttribute('y1', y1+20);
+            line.setAttribute('x2', x2+20);
+            line.setAttribute('y2', y2+20);
+            svg.appendChild(line);
+            edgeMap[edgeId] = line;
+          }
+        });
+      }
+    }
+    for (let i = 1; i <= 10; i++) {
+      const node = document.createElement('div');
+      node.className = 'node';
+      node.id = 'node' + i;
+      node.textContent = i;
+      node.style.left = positions[i][0] + 'px';
+      node.style.top  = positions[i][1] + 'px';
+      networkDiv.appendChild(node);
+    }
+    drawEdges();
+
+    let selectedCount = 0, maxSelect = 1;
+    document.getElementById('thresholdSelect').addEventListener('change', function() {
+      resetSimulation();
+      maxSelect = (this.value === '0.3' ? 1 : 2);
+    });
+    networkDiv.addEventListener('click', function(e) {
+      const n = e.target;
+      if (n.classList.contains('node')) {
+        if (selectedCount < maxSelect && !n.classList.contains('selected')) {
+          n.classList.add('selected'); n.classList.remove('active'); selectedCount++;
+        }
+      }
+    });
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    async function runSimulation() {
+      statusDiv.textContent = "";
+      const active = new Set();
+      document.querySelectorAll('.node.selected').forEach(n => {
+        const id = parseInt(n.id.replace('node','')); active.add(id); n.classList.add('active');
+      });
+      const threshold = parseFloat(document.getElementById('thresholdSelect').value);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        const toActivate = [], edgesToActivate = [];
+        for (let i = 1; i <= 10; i++) {
+          if (!active.has(i)) {
+            const neigh = neighbors[i];
+            const activeCount = neigh.filter(n => active.has(n)).length;
+            if (neigh.length > 0 && (activeCount / neigh.length) >= threshold) {
+              toActivate.push(i);
+              neigh.forEach(nid => { if (active.has(nid)) edgesToActivate.push([i,nid].sort().join('-')); });
+            }
+          }
+        }
+        if (toActivate.length > 0) changed = true;
+        for (const i of toActivate) { active.add(i); document.getElementById('node'+i).classList.add('active'); }
+        for (const eid of edgesToActivate) { if (edgeMap[eid]) edgeMap[eid].classList.add('active'); }
+        if (changed) await sleep(500);
+      }
+      statusDiv.textContent = "✅ شبیه‌سازی به پایان رسید!";
+    }
+    function resetSimulation() {
+      selectedCount = 0;
+      document.querySelectorAll('.node').forEach(n => n.classList.remove('selected','active'));
+      Object.values(edgeMap).forEach(line => line.classList.remove('active'));
+      statusDiv.textContent = "";
+    }
+    document.getElementById('runButton').addEventListener('click', runSimulation);
+    document.getElementById('resetButton').addEventListener('click', resetSimulation);
+
+    // Help modal
+    const helpModal = document.getElementById('helpModal');
+    document.getElementById('helpButton').addEventListener('click', () => helpModal.classList.add('open'));
+    document.getElementById('closeHelp').addEventListener('click', () => helpModal.classList.remove('open'));
+    window.addEventListener('click', (e) => { if (e.target === helpModal) helpModal.classList.remove('open'); });
+    window.onload = () => { helpModal.classList.add('open'); };
+  </script>
+</body>
+</html>
